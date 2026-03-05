@@ -1,11 +1,11 @@
+import { Address } from "../address/address.entity";
 export class Patient {
-    constructor(
-        public readonly id: string,
-        public readonly name: string,
-        public readonly motherName: string,
-        public readonly doc: string,
-        public readonly phone: string,
-        public readonly birthDate: string,
-        public readonly teamId: string
-    ) { }
+  constructor(
+    public id: string,
+    public name: string,
+    public address: Address,
+    public lastTeamId: string,
+    public isPregnant: boolean = false,
+    public pregnancyDueDate?: string
+  ) {}
 }

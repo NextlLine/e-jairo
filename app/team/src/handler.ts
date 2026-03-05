@@ -1,12 +1,16 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
 import { TeamService } from "./service";
 import { dynamooseTeamRepository } from "../../../infra/dynamoose/repositories/team.dynamoose.repository";
-import { dynamooseUnityRepository } from "../../../infra/dynamoose/repositories/unity.dynamoose.repository";
+import { dynamooseUnitRepository } from "../../../infra/dynamoose/repositories/unit.dynamoose.repository";
 import { HttpError } from "../../../shared/errors/http-error";
 import { dynamooseUserRepository } from "../../../infra/dynamoose/repositories/user.dynamoose.repository";
 import { formatHttpErrorResponse } from "../../../shared/errors/format-http-error-response";
 
-const teamService = new TeamService(dynamooseTeamRepository, dynamooseUnityRepository, dynamooseUserRepository);
+const teamService = new TeamService(
+    dynamooseTeamRepository,
+    dynamooseUnitRepository,
+    dynamooseUserRepository,
+);
 
 export async function create(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
     try {

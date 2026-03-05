@@ -64,7 +64,7 @@ functions:
   - ${file(./app/auth/functions.yml)}
   - ${file(./app/user/functions.yml)}
   - ${file(./app/team/functions.yml)}
-  - ${file(./app/unity/functions.yml)}
+  - ${file(./app/unit/functions.yml)}
   - ${file(./app/advertisement/functions.yml)}
   - ${file(./app/document/functions.yml)}
 

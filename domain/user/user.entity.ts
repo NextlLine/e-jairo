@@ -1,13 +1,11 @@
-import { UserRoles } from "../types/UserRoles";
-
+import { Profession } from "../types/profession";
+import { UserRole } from "../types/UserRole";
 export class User {
   constructor(
     public readonly id: string,
     public readonly email: string,
-    public readonly name: string,
-    public readonly role: UserRoles,
-    public readonly teamId: string,
-    public readonly createdAt: Date = new Date()
-  ) { }
+    public name: string,
+    public profession: Profession,
+    public role: UserRole
+  ) {}
 }
-

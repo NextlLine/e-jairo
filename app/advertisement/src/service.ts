@@ -1,60 +1,78 @@
-import z from "zod";
-import { AdvertisementRepository } from "../../../domain/advertisement/advertisement.repository";
-import { Advertisement } from "../../../domain/advertisement/advertisement.entity";
 import { randomUUID } from "crypto";
-import { mapToHttpError } from "../../../shared/errors/map-http-error";
-
-const createAdvertisementSchema = z.object({
-    message: z.string(),
-    teamId: z.string().uuid(),
-});
-
-const deleteAdvertisementSchema = z.object({
-    adId: z.string(),
-});
+import { HttpError } from "../../../shared/errors/http-error";
+import { Advertisement } from "../../../domain/advertisement/advertisement.entity";
+import { AdvertisementRepository } from "../../../domain/advertisement/advertisement.repository";
+import { TeamMembershipRepository } from "../../../domain/team_membership/team_membership.repository";
 
 export class AdvertisementService {
-    constructor(private readonly advertisementRepository: AdvertisementRepository) { }
+  constructor(
+    private readonly advertisementRepository: AdvertisementRepository,
+    private readonly teamMembershipRepository: TeamMembershipRepository
+  ) {}
 
-    async create(adData: z.infer<typeof createAdvertisementSchema>) {
-        const validatedAd = createAdvertisementSchema.parse(adData);
-
-        const ad = new Advertisement(
-            randomUUID(),
-            validatedAd.message,
-            validatedAd.teamId
-        )
-
-        try {
-            await this.advertisementRepository.create(ad);
-        } catch (error) {
-            return mapToHttpError(error, "criar aviso");
-        }
+  async create(data: {
+    message: string;
+    userId: string;
+    teamId: string;
+  }) {
+    if (!data.message || data.message.trim().length === 0) {
+      throw new HttpError(400, "Mensagem inválida");
     }
 
-    async listByTeam(teamId: string) {
-        try {
-            return await this.advertisementRepository.listByTeam(teamId);
-        } catch (error) {
-            return mapToHttpError(error, "listagem de avisos por time");
+    const membership =
+      await this.teamMembershipRepository.find(
+        data.userId,
+        data.teamId
+      );
 
-        }
+    if (!membership) {
+      throw new HttpError(403, "Usuário não pertence a este time");
     }
 
-    async delete(adData: z.infer<typeof deleteAdvertisementSchema>) {
-        const validatedAd = deleteAdvertisementSchema.parse(adData);
-            console.log(`Deleting advertisement with ID: ${validatedAd.adId}`);
+    const ad = new Advertisement(
+      randomUUID(),
+      data.message,
+      data.teamId
+    );
 
-        try {
-            const existingAds = await this.advertisementRepository.findById(validatedAd.adId);
+    await this.advertisementRepository.create(ad);
+  }
 
-            if (!existingAds) {
-                throw new Error("Aviso não encontrado");
-            }
+  async list(teamId: string, userId: string) {
+    const membership =
+      await this.teamMembershipRepository.find(
+        userId,
+        teamId
+      );
 
-            await this.advertisementRepository.delete(validatedAd.adId);
-        } catch (error) {
-            return mapToHttpError(error, "deletar aviso");
-        }
+    if (!membership) {
+      throw new HttpError(403, "Usuário não pertence a este time");
     }
+
+    return this.advertisementRepository.listByTeam(teamId);
+  }
+
+  async delete(adId: string, userId: string) {
+    const ad = await this.advertisementRepository.findById(adId);
+
+    if (!ad) {
+      throw new HttpError(404, "Anúncio não encontrado");
+    }
+
+    const membership =
+      await this.teamMembershipRepository.find(
+        userId,
+        ad.teamId
+      );
+
+    if (!membership) {
+      throw new HttpError(403, "Usuário não pertence a este time");
+    }
+
+    if (membership.role !== "ADMIN") {
+      throw new HttpError(403, "Apenas administradores podem deletar anúncios");
+    }
+
+    await this.advertisementRepository.delete(adId);
+  }
 }

@@ -1,12 +1,14 @@
-import { dynamooseUnityRepository } from "../../../infra/dynamoose/repositories/unity.dynamoose.repository";
-import { dynamooseAddressRepository } from "../../../infra/dynamoose/repositories/address.dynamoose.repository";
+import { dynamooseUnitRepository } from "../../../infra/dynamoose/repositories/unit.dynamoose.repository";
 import { formatHttpErrorResponse } from "../../../shared/errors/format-http-error-response";
-import { UnityService } from "./service";
+import { UnitService } from "./service";
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
 import { dynamooseUserRepository } from "../../../infra/dynamoose/repositories/user.dynamoose.repository";
 import { HttpError } from "../../../shared/errors/http-error";
 
-const unityService = new UnityService(dynamooseUnityRepository, dynamooseAddressRepository, dynamooseUserRepository);
+const unitService = new UnitService(
+    dynamooseUnitRepository,
+    dynamooseUserRepository
+);
 
 export async function create(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
     try {
@@ -21,7 +23,7 @@ export async function create(event: APIGatewayProxyEvent): Promise<APIGatewayPro
         const body = JSON.parse(event.body!);
         const userSub = event.requestContext.authorizer.jwt.claims.sub;
 
-        const response = await unityService.createUnity(body, userSub);
+        const response = await unitService.createUnit(body, userSub);
         return {
             statusCode: 200,
             body: JSON.stringify({ message: "Unidade criada com sucesso", data: response }),

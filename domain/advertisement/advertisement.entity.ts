@@ -1,7 +1,8 @@
 export class Advertisement {
-    constructor(
-        public readonly id: string,
-        public readonly message: string,
-        public readonly teamId: string,
-    ) { }
+  constructor(
+    public id: string,
+    public message: string,
+    public teamId: string,
+    public readonly createdAt: Date = new Date()
+  ) {}
 }

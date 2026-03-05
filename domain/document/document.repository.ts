@@ -1,4 +1,5 @@
+import { Document } from "./document.entity"
 export interface DocumentRepository {
-  upload(key: string, buffer: Buffer, contentType: string): Promise<void>;
-  delete(key: string): Promise<void>;
+  upload(data: Document): Promise<void>;
+  delete(documentId: string): Promise<void>;
 }

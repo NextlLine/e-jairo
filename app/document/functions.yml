@@ -1,0 +1,26 @@
+uploadDocument:
+  handler: app/document/src/handler.uploadDocument
+  events:
+    - httpApi:
+        path: /document/upload
+        method: post
+        authorizer:
+          name: jwtAuthorizer
+
+deleteDocument:
+  handler: app/document/src/handler.deleteDocument
+  events:
+    - httpApi:
+        path: /document/delete
+        method: delete
+        authorizer:
+          name: jwtAuthorizer
+
+getAllDocuments:
+  handler: app/document/src/handler.getAllDocuments
+  events:
+    - httpApi:
+        path: /document/all
+        method: get
+        authorizer:
+          name: jwtAuthorizer

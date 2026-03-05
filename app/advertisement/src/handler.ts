@@ -1,44 +1,57 @@
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
-import { formatHttpErrorResponse } from "../../../shared/errors/format-http-error-response";
+import {
+    APIGatewayProxyEvent,
+    APIGatewayProxyResult,
+} from "aws-lambda";
 import { HttpError } from "../../../shared/errors/http-error";
-import { AdvertisementService } from "./service";
+import { formatHttpErrorResponse } from "../../../shared/errors/format-http-error-response";
 import { dynamooseAdvertisementRepository } from "../../../infra/dynamoose/repositories/advertisement.dynamoose.repository";
-import { userService } from "../../user/src/handler";
+import { dynamooseTeamMembershipRepository } from "../../../infra/dynamoose/repositories/team_membership.dynamoose.repository";
+import { AdvertisementService } from "./service";
 
-const advertisementService = new AdvertisementService(dynamooseAdvertisementRepository)
+const advertisementService = new AdvertisementService(
+    dynamooseAdvertisementRepository,
+    dynamooseTeamMembershipRepository
+);
 
-export async function create(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+function getUserId(event: APIGatewayProxyEvent): string {
+    if (!event.requestContext.authorizer) {
+        throw new HttpError(401, "Não autorizado");
+    }
+
+    return event.requestContext.authorizer.jwt.claims.sub;
+}
+
+function parseBody(event: APIGatewayProxyEvent) {
+    if (!event.body) {
+        throw new HttpError(400, "Body não fornecido");
+    }
+
+    return JSON.parse(event.body);
+}
+
+export async function create(
+    event: APIGatewayProxyEvent
+): Promise<APIGatewayProxyResult> {
     try {
-        if (!event.body) {
-            throw new HttpError(400, "Dados do anúncio não fornecidos");
+        const userId = getUserId(event);
+        const body = parseBody(event);
+
+        if (!body.message) {
+            throw new HttpError(400, "Mensagem não fornecida");
         }
 
-        if (!event.requestContext.authorizer) {
-            throw new HttpError(401, "Não autorizado");
+        if (!body.teamId) {
+            throw new HttpError(400, "teamId não fornecido");
         }
 
-        const userSub = event.requestContext.authorizer.jwt.claims.sub;
-
-        const user = await userService.getUserById(userSub);
-        const teamId = user?.teamId;
-
-        if (!teamId) {
-            throw new HttpError(404, "Time do usuário não encontrado");
-        }
-
-        const body = JSON.parse(event.body);
-
-        const data = {
-            message: body.message as string,
-            teamId: teamId as string,
-        }
-
-        console.log("Creating advertisement with data:", data);
-
-        await advertisementService.create(data);
+        await advertisementService.create({
+            message: body.message,
+            userId,
+            teamId: body.teamId,
+        });
 
         return {
-            statusCode: 200,
+            statusCode: 201,
             body: JSON.stringify({ message: "Anúncio criado com sucesso" }),
         };
     } catch (err) {
@@ -46,58 +59,47 @@ export async function create(event: APIGatewayProxyEvent): Promise<APIGatewayPro
     }
 }
 
-export async function listByTeam(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+
+export async function list(
+    event: APIGatewayProxyEvent
+): Promise<APIGatewayProxyResult> {
     try {
-        if (!event.requestContext.authorizer) {
-            throw new HttpError(401, "Não autorizado");
-        }
+        const userId = getUserId(event);
 
-        const userSub = event.requestContext.authorizer.jwt.claims.sub;
-
-        const user = await userService.getUserById(userSub);
-        const teamId = user?.teamId;
+        const teamId = event.queryStringParameters?.teamId;
 
         if (!teamId) {
-            throw new HttpError(404, "Time do usuário não encontrado");
+            throw new HttpError(400, "teamId não fornecido");
         }
 
-        const advertisements = await advertisementService.listByTeam(teamId);
+        const ads = await advertisementService.list(teamId, userId);
 
         return {
             statusCode: 200,
-            body: JSON.stringify(advertisements),
+            body: JSON.stringify(ads),
         };
     } catch (err) {
-        return formatHttpErrorResponse(err, "Erro ao buscar anúncios por time");
+        return formatHttpErrorResponse(err, "Erro ao listar anúncios");
     }
 }
 
-export async function deleteById(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+export async function deleteById(
+    event: APIGatewayProxyEvent
+): Promise<APIGatewayProxyResult> {
     try {
-        if (!event.requestContext.authorizer) {
-            throw new HttpError(401, "Não autorizado");
+        const userId = getUserId(event);
+
+        const adId = event.pathParameters?.id;
+
+        if (!adId) {
+            throw new HttpError(400, "ID não fornecido");
         }
 
-        const userSub = event.requestContext.authorizer.jwt.claims.sub;
-
-        const user = await userService.getUserById(userSub);
-        const teamId = user?.teamId;
-
-        if (!teamId) {
-            throw new HttpError(404, "Time do usuário não encontrado");
-        }
-
-        const advertisementId = event.pathParameters?.id;
-
-        if (!advertisementId) {
-            throw new HttpError(400, "ID do anúncio não fornecido");
-        }
-
-        await advertisementService.delete({ adId: advertisementId });
+        await advertisementService.delete(adId, userId);
 
         return {
-            statusCode: 200,
-            body: JSON.stringify({ message: "Anúncio deletado com sucesso" }),
+            statusCode: 204,
+            body: "",
         };
     } catch (err) {
         return formatHttpErrorResponse(err, "Erro ao deletar anúncio");

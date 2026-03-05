@@ -13,6 +13,6 @@
     "rootDir": "./",
     "types": ["node", "aws-lambda"],
   },
-    "include": ["app/**/*.ts"],
+    "include": ["app/**/*.ts", "infra/auth/errors.ts", "infra/auth/auth.provider.ts"],
   "exclude": ["node_modules", "dist"]
 }

@@ -3,61 +3,66 @@ import { AdvertisementRepository } from "../../../domain/advertisement/advertise
 import { AppTable } from "../table";
 
 class AdvertisementDynamooseRepository implements AdvertisementRepository {
-    async listByTeam(teamId: string): Promise<Advertisement[]> {
-        const items = await AppTable.query("GSI1PK")
-            .eq(`TEAM#${teamId}`)
-            .using("GSI1")
-            .where("entity")
-            .eq("ADVERTISEMENT")
-            .sort("descending")
-            .exec();
+  async create(ad: Advertisement): Promise<void> {
+    await AppTable.create({
+      PK: `TEAM#${ad.teamId}`,
+      SK: `ADVERTISEMENT#${ad.id}`,
+      entity: "ADVERTISEMENT",
 
-        return items.map((item) => new Advertisement(
-            item.PK.split("#")[1],
-            item.message,
-            item.teamId
-        ));
-    }
+      id: ad.id,
+      message: ad.message,
+      createdAt: ad.createdAt.toISOString(),
 
-    async create(advertisementData: Advertisement): Promise<Advertisement> {
-        await AppTable.create({
-            PK: `ADVERTISEMENT#${advertisementData.id}`,
-            SK: `PROFILE`,
+      GSI1PK: `ADVERTISEMENT#${ad.id}`,
+      GSI1SK: `TEAM#${ad.teamId}`,
+    });
+  }
 
-            GSI1PK: `TEAM#${advertisementData.teamId}`,
-            GSI1SK: `ADVERTISEMENT#${advertisementData.id}`,
+  async findById(adId: string): Promise<Advertisement | null> {
+    const result = await AppTable.query("GSI1PK")
+      .eq(`ADVERTISEMENT#${adId}`)
+      .using("GSI1")
+      .exec();
 
-            entity: "ADVERTISEMENT",
-            message: advertisementData.message,
-            teamId: advertisementData.teamId,
-        })
+    const item = result[0];
+    if (!item) return null;
 
-        return advertisementData;
-    }
+    return new Advertisement(
+      item.id,
+      item.message,
+      item.PK.replace("TEAM#", ""),
+      new Date(item.createdAt)
+    );
+  }
 
-    async findById(adId: string): Promise<Advertisement | null> {
-        const item = await AppTable.get({
-            PK: `ADVERTISEMENT#${adId}`,
-            SK: `PROFILE`,
-        });
+  async listByTeam(teamId: string): Promise<Advertisement[]> {
+    const result = await AppTable.query("PK")
+      .eq(`TEAM#${teamId}`)
+      .where("entity")
+      .eq("ADVERTISEMENT")
+      .exec();
 
-        if (!item) {
-            return null;
-        }
+    return result.map(
+      (item) =>
+        new Advertisement(
+          item.id,
+          item.message,
+          teamId,
+          new Date(item.createdAt)
+        )
+    );
+  }
 
-        return new Advertisement(
-            item.PK.split("#")[1],
-            item.message,
-            item.teamId
-        );
-    }
+  async delete(adId: string): Promise<void> {
+    const ad = await this.findById(adId);
+    if (!ad) return;
 
-    async delete(adId: string): Promise<void> {
-        await AppTable.delete({
-            PK: `ADVERTISEMENT#${adId}`,
-            SK: `PROFILE`,
-        });
-    }
+    await AppTable.delete({
+      PK: `TEAM#${ad.teamId}`,
+      SK: `ADVERTISEMENT#${ad.id}`,
+    });
+  }
+
 }
 
 export const dynamooseAdvertisementRepository = new AdvertisementDynamooseRepository();

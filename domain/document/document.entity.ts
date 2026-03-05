@@ -1,8 +1,9 @@
 export class Document {
     constructor(
-        fileName: string,
-        contentType: string,
-        size: number,
-        data: Buffer
+        public id: string,
+        public name: string,
+        public contentType: string,
+        public size: number,
+        public data: Buffer
     ) { }
 }

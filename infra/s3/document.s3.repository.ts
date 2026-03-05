@@ -1,17 +1,25 @@
+import { Document } from '../../domain/document/document.entity';
 import { DocumentRepository } from '../../domain/document/document.repository';
 import { s3 } from './client';
 
 export class DocumentS3Repository implements DocumentRepository {
-  async upload(key: string, buffer: Buffer, contentType: string) {
+
+  async upload(document: Document) {
+
+    const key = `documents/${document.id}`;
+
     await s3.putObject({
       Bucket: process.env.S3_BUCKET_NAME!,
       Key: key,
-      Body: buffer,
-      ContentType: contentType,
+      Body: document.data,
+      ContentType: document.contentType,
     }).promise();
   }
 
-  async delete(key: string) {
+  async delete(documentId: string) {
+
+    const key = `documents/${documentId}`;
+
     await s3.deleteObject({
       Bucket: process.env.S3_BUCKET_NAME!,
       Key: key,
