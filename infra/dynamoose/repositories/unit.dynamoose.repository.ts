@@ -4,7 +4,7 @@ import { UnitRepository } from "../../../domain/unit/unit.repository";
 import { Address } from "../../../domain/address/address.entity";
 
 export class UnitDynamooseRepository implements UnitRepository {
-  
+
   async create(unit: Unit): Promise<void> {
     await AppTable.create({
       PK: `UNIT#${unit.id}`,
@@ -12,7 +12,13 @@ export class UnitDynamooseRepository implements UnitRepository {
       entity: "UNIT",
 
       name: unit.name,
-      address: unit.address,
+      address: {
+        street: unit.address.street,
+        city: unit.address.city,
+        state: unit.address.state,
+        zipCode: unit.address.zipCode,
+        country: unit.address.country,
+      },
 
       city: unit.address.city,
       state: unit.address.state,

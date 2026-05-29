@@ -1,5 +1,5 @@
 import { Document } from "./document.entity"
 export interface DocumentRepository {
-  upload(data: Document): Promise<void>;
+  generatePresignedUrl(documentId: string, contentType: string): Promise<{uploadUrl: string; key: string }>;
   delete(documentId: string): Promise<void>;
 }

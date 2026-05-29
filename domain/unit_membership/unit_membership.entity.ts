@@ -1,4 +1,4 @@
-import { UnitRole } from "../types/UnitRole";
+import { UnitRole } from "../type/UnitRole";
 
 export class UnitMembership {
   constructor(

@@ -2,7 +2,7 @@ createTeam:
   handler: app/team/src/handler.create
   events:
     - httpApi:
-        path: /team/create
+        path: /team
         method: post
         authorizer:
-          name: jwtAuthorizer
+          name: jwtAuthorizer 

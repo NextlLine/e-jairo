@@ -1,5 +1,5 @@
-import { Profession } from "../types/profession";
-import { UserRole } from "../types/UserRole";
+import { Profession } from "../type/profession";
+import { UserRole } from "../type/UserRole";
 export class User {
   constructor(
     public readonly id: string,

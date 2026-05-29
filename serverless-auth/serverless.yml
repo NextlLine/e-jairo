@@ -5,6 +5,9 @@ provider:
   runtime: nodejs20.x
   region: us-east-1
   stage: ${opt:stage, 'dev'}
+  stackTags:
+    Environment: ${sls:stage}
+    Service: ${self:service}
 
 resources:
   Resources:

@@ -1,4 +1,4 @@
-import { TeamRole } from "../types/TeamRole";
+import { TeamRole } from "../type/TeamRole";
 
 export class TeamMembership {
   constructor(

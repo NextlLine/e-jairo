@@ -2,7 +2,7 @@
 import { AppTable } from "../table";
 import { UnitMembershipRepository } from "../../../domain/unit_membership/unit_membership.repository";
 import { UnitMembership } from "../../../domain/unit_membership/unit_membership.entity";
-import { UnitRole } from "../../../domain/types/UnitRole";
+import { UnitRole } from "../../../domain/type/UnitRole";
 import dynamoose from "../client";
 
 class UnitMembershipDynamoRepository implements UnitMembershipRepository {

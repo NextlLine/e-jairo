@@ -1,17 +1,27 @@
-uploadDocument:
-  handler: app/document/src/handler.uploadDocument
+generateUploadUrl:
+  handler: app/document/src/handler.generateUploadUrl
   events:
     - httpApi:
-        path: /document/upload
+        path: /document/upload-url
         method: post
         authorizer:
           name: jwtAuthorizer
+
+saveMetadata:
+  handler: app/document/src/handler.saveMetadata
+  events:
+    - httpApi:
+        path: /document/metadata
+        method: post
+        authorizer:
+          name: jwtAuthorizer
+
 
 deleteDocument:
   handler: app/document/src/handler.deleteDocument
   events:
     - httpApi:
-        path: /document/delete
+        path: /document
         method: delete
         authorizer:
           name: jwtAuthorizer
@@ -20,7 +30,16 @@ getAllDocuments:
   handler: app/document/src/handler.getAllDocuments
   events:
     - httpApi:
-        path: /document/all
+        path: /document
+        method: get
+        authorizer:
+          name: jwtAuthorizer
+          
+getDocuments:
+  handler: app/document/src/handler.getDocuments
+  events:
+    - httpApi:
+        path: /documents
         method: get
         authorizer:
           name: jwtAuthorizer

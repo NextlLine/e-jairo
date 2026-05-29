@@ -3,60 +3,55 @@ import { HttpError } from "../../../shared/errors/http-error";
 import { Advertisement } from "../../../domain/advertisement/advertisement.entity";
 import { AdvertisementRepository } from "../../../domain/advertisement/advertisement.repository";
 import { TeamMembershipRepository } from "../../../domain/team_membership/team_membership.repository";
+import z from "zod";
 
+const createAdSchema = z.object({
+  message: z.string().min(1),
+});
 export class AdvertisementService {
   constructor(
     private readonly advertisementRepository: AdvertisementRepository,
     private readonly teamMembershipRepository: TeamMembershipRepository
   ) {}
 
-  async create(data: {
-    message: string;
-    userId: string;
-    teamId: string;
-  }) {
-    if (!data.message || data.message.trim().length === 0) {
-      throw new HttpError(400, "Mensagem inválida");
+  async create(data: z.infer<typeof createAdSchema>, userId: string) {
+    const validatedData = createAdSchema.parse(data);
+
+    if (!validatedData.message || validatedData.message.trim().length === 0) {
+      throw new HttpError(400, "AdvertisementMessageInvalid");
     }
 
-    const membership =
-      await this.teamMembershipRepository.find(
-        data.userId,
-        data.teamId
-      );
+    const membership = await this.teamMembershipRepository.findByUser(userId)
 
     if (!membership) {
-      throw new HttpError(403, "Usuário não pertence a este time");
+      throw new HttpError(403, "UserNotInTeam");
     }
 
     const ad = new Advertisement(
       randomUUID(),
       data.message,
-      data.teamId
+      membership[0].teamId
     );
 
     await this.advertisementRepository.create(ad);
   }
 
-  async list(teamId: string, userId: string) {
-    const membership =
-      await this.teamMembershipRepository.find(
-        userId,
-        teamId
-      );
+  async list(userId: string) {
+    const membership = await this.teamMembershipRepository.findByUser(userId)
+
 
     if (!membership) {
-      throw new HttpError(403, "Usuário não pertence a este time");
+      throw new HttpError(403, "UserNotInTeam");
     }
 
-    return this.advertisementRepository.listByTeam(teamId);
+    return this.advertisementRepository.listByTeam(membership[0].teamId);
   }
 
   async delete(adId: string, userId: string) {
     const ad = await this.advertisementRepository.findById(adId);
 
     if (!ad) {
-      throw new HttpError(404, "Anúncio não encontrado");
+      throw new HttpError(404, "AdvertisementNotFound");
     }
 
     const membership =
@@ -66,11 +61,7 @@ export class AdvertisementService {
       );
 
     if (!membership) {
-      throw new HttpError(403, "Usuário não pertence a este time");
-    }
-
-    if (membership.role !== "ADMIN") {
-      throw new HttpError(403, "Apenas administradores podem deletar anúncios");
+      throw new HttpError(403, "UserNotInTeam");
     }
 
     await this.advertisementRepository.delete(adId);

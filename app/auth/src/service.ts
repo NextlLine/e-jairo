@@ -3,15 +3,15 @@ import { UserRepository } from "../../../domain/user/user.repository";
 import { User } from "../../../domain/user/user.entity";
 import {
   ProfessionValues,
-} from "../../../domain/types/profession";
+} from "../../../domain/type/profession";
 import { AuthProvider } from "../../../infra/auth/auth.provider";
 import { TeamRepository } from "../../../domain/team/team.repository";
 import { HttpError } from "../../../shared/errors/http-error";
-import { UserRole } from "../../../domain/types/UserRole";
+import { UserRole } from "../../../domain/type/UserRole";
 import { TeamMembership } from "../../../domain/team_membership/team_membership.entity";
 import { UnitMembership } from "../../../domain/unit_membership/unit_membership.entity";
-import { TeamRole } from "../../../domain/types/TeamRole";
-import { UnitRole } from "../../../domain/types/UnitRole";
+import { TeamRole } from "../../../domain/type/TeamRole";
+import { UnitRole } from "../../../domain/type/UnitRole";
 import { UserTransactionRepository } from "../../../domain/user/user_transaction.repository";
 
 const SignUpUserSchema = z.object({
@@ -19,7 +19,7 @@ const SignUpUserSchema = z.object({
   password: z.string().min(8).max(100),
   name: z.string(),
   profession: z.enum(ProfessionValues),
-  teamCode: z.string().length(6),
+  teamCode: z.string(),
 });
 
 const SignInUserSchema = z.object({
@@ -44,7 +44,7 @@ export class AuthService {
 
     const team = await this.teamRepository.findById(validatedData.teamCode);
     if (!team) {
-      throw new HttpError(404, "Código do time inválido");
+      throw new HttpError(404, "TeamCodeInvalid");
     }
 
     const { userId } = await this.authProvider.signUp({

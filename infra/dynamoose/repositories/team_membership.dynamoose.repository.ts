@@ -1,5 +1,5 @@
 
-import { TeamRole } from "../../../domain/types/TeamRole";
+import { TeamRole } from "../../../domain/type/TeamRole";
 import { AppTable } from "../table";
 import { TeamMembershipRepository } from "../../../domain/team_membership/team_membership.repository";
 import { TeamMembership } from "../../../domain/team_membership/team_membership.entity";
@@ -55,7 +55,7 @@ class TeamMembershipDynamooseRepository implements TeamMembershipRepository {
     );
   }
   async findByTeam(teamId: string): Promise<TeamMembership[]> {
-    const result = await AppTable.query("PK")
+    const result = await AppTable.get("PK")
       .eq(`TEAM#${teamId}`)
       .where("entity")
       .eq("MEMBERSHIP")

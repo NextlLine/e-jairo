@@ -1,107 +1,138 @@
-import { DocumentRepository } from '../../../domain/document/document.repository';
-import { DocumentMetadataRepository } from '../../../domain/document/document.metadata.repository';
-import z from 'zod';
-import { UnitRepository } from '../../../domain/unit/unit.repository';
-import { HttpError } from '../../../shared/errors/http-error';
-import { Document } from '../../../domain/document/document.entity';
-import { DocumentMetadata } from '../../../domain/document/document.metadata.entity';
-import { randomUUID } from 'crypto';
+import { DocumentRepository } from "../../../domain/document/document.repository";
+import { DocumentMetadataRepository } from "../../../domain/document/document.metadata.repository";
+import { UnitRepository } from "../../../domain/unit/unit.repository";
+import { HttpError } from "../../../shared/errors/http-error";
+import { DocumentMetadata } from "../../../domain/document/document.metadata.entity";
+import { randomUUID } from "crypto";
+import z from "zod";
+import { UnitMembershipRepository } from "../../../domain/unit_membership/unit_membership.repository";
+
+const GenerateUploadUrlSchema = z.object({
+  name: z.string(),
+  contentType: z.string(),
+});
 
 const UploadDocumentSchema = z.object({
-    unitId: z.string(),
-    name: z.string(),
-    description: z.string().optional(),
-    contentType: z.string(),
-    size: z.number(),
-    data: z.instanceof(Buffer),
-    category: z.string().optional(),
+  name: z.string(),
+  description: z.string().optional(),
+  contentType: z.string(),
+  size: z.number(),
+  data: z.instanceof(Buffer),
+  category: z.string().optional(),
 });
+
+const SaveMetadataSchema = z.object({
+  documentId: z.string(),
+  name: z.string(),
+  key: z.string(),
+  contentType: z.string(),
+  size: z.number(),
+  category: z.string().optional(),
+});
+
+const QuerySchema = z.object({
+  category: z.string().optional(),
+  limit: z.number().optional(),
+  cursor: z.number().optional(),
+});
+
 export class DocumentService {
-    constructor(
-        private readonly documentRepository: DocumentRepository,
-        private readonly documentMetadataRepository: DocumentMetadataRepository,
-        private readonly unitRepository: UnitRepository
-    ) { }
+  constructor(
+    private readonly documentRepository: DocumentRepository,
+    private readonly documentMetadataRepository: DocumentMetadataRepository,
+    private readonly unitRepository: UnitRepository,
+    private readonly unitMembershipRepository: UnitMembershipRepository
+  ) { }
 
-    async uploadDocument(data: z.infer<typeof UploadDocumentSchema>) {
-        const validatedData = UploadDocumentSchema.parse(data);
-        const existingUnit = await this.unitRepository.findById(validatedData.unitId);
+  async generateUploadUrl(data: z.infer<typeof GenerateUploadUrlSchema>, userId: string) {
+    const validatedData = GenerateUploadUrlSchema.parse(data);
+    const documentId = randomUUID();
 
-        if (!existingUnit) {
-            throw new HttpError(404, "Unidade não encontrada");
-        }
+    const { uploadUrl, key } =
+      await this.documentRepository.generatePresignedUrl(documentId, validatedData.contentType);
 
-        const id = randomUUID();
+    return {
+      documentId,
+      uploadUrl,
+      key
+    };
+  }
 
-        const document = new Document(
-            id,
-            validatedData.name,
-            validatedData.contentType,
-            validatedData.size,
-            validatedData.data
-        );
+  async saveMetadata(data: z.infer<typeof SaveMetadataSchema>, userId: string) {
+    const validatedData = SaveMetadataSchema.parse(data);
+    const unit = await this.unitMembershipRepository.findByUser(userId);
 
-        try {
-            await this.documentRepository.upload(document);
+    if (!unit || unit.length === 0) throw new HttpError(404, "UnitNotFound");
 
-            const metadata = new DocumentMetadata(
-                id,
-                validatedData.unitId,
-                validatedData.name,
-                `documents/${id}`,
-                validatedData.contentType,
-                validatedData.size,
-                validatedData.category ?? null
-            );
+    const metadata = new DocumentMetadata(
+      validatedData.documentId,
+      unit[0].unitId,
+      validatedData.name,
+      validatedData.key,
+      validatedData.contentType,
+      validatedData.size,
+      validatedData.category ?? null
+    );
 
-            await this.documentMetadataRepository.create(metadata);
+    await this.documentMetadataRepository.create(metadata);
 
-            return metadata;
+    return metadata;
+  }
 
-        } catch (err) {
-            try {
-                await this.documentRepository.delete(id);
-            } catch (err) {
-                throw new HttpError(500, "Erro ao limpar documento após falha no upload");
-            }
-            throw new HttpError(500, "Erro ao upload documento");
-        }
+  async deleteDocument(documentId: string) {
+    const metadata = await this.documentMetadataRepository.findById(documentId);
+
+    if (!metadata) {
+      throw new HttpError(404, "DocumentNotFound");
     }
 
-    async deleteDocument(documentId: string) {
-        try {
-            const metadata = await this.documentMetadataRepository
-                .findById(documentId);
+   
+      await this.documentRepository.delete(documentId);
 
-            if (!metadata) {
-                throw new HttpError(404, "Documento não encontrado");
-            }
+      await this.documentMetadataRepository.delete(documentId);
 
-            await this.documentRepository.delete(documentId);
+      return { message: "Documento deletado com sucesso" };
+   
+  }
 
-            await this.documentMetadataRepository.delete(documentId);
+  async getAllDocuments(userId: string) {
+    const membership = await this.unitMembershipRepository.findByUser(userId);
 
-            return { message: "Documento deletado com sucesso" };
-
-        } catch (err) {
-            throw new HttpError(500, "Erro ao deletar documento");
-        }
+    if (!membership || membership.length === 0) {
+      throw new HttpError(404, "UnitNotFound");
     }
 
-    async getAllDocuments(unitId: string) {
-        const existingUnit = await this.unitRepository.findById(unitId);
+    const unitId = membership[0].unitId; const unit = await this.unitRepository.findById(unitId);
 
-        if (!existingUnit) {
-            throw new HttpError(404, "Unidade não encontrada");
-        }
-
-        try {
-            const documents = await this.documentMetadataRepository.findAllByUnitId(unitId);
-
-            return documents;
-
-        } catch (err) {
-            throw new HttpError(500, "Erro ao buscar documentos");
-        }
+    if (!unit) {
+      throw new HttpError(404, "UnitNotFound");
     }
-} 
+
+    
+      const documents = await this.documentMetadataRepository.findAllByUnitId(unitId);
+
+      return documents;
+   
+  }
+
+  async getDocuments(unitId: string, query: z.infer<typeof QuerySchema>) {
+    const validatedQuery = QuerySchema.parse(query);
+
+    const unit = await this.unitRepository.findById(unitId);
+
+    if (!unit) {
+      throw new HttpError(404, "UnitNotFound");
+    }
+
+   
+      const documents = await this.documentMetadataRepository.findWithFilters(
+        unitId,
+        validatedQuery.category,
+        validatedQuery.limit ? validatedQuery.limit : undefined,
+        validatedQuery.cursor ? validatedQuery.cursor : undefined
+      );
+
+      return documents;
+    
+  }
+}

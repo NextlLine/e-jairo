@@ -1,5 +1,5 @@
 import { Address } from "../../../domain/address/address.entity";
-import { UserRole } from "../../../domain/types/UserRole";
+import { UserRole } from "../../../domain/type/UserRole";
 import { User } from "../../../domain/user/user.entity";
 import { UserRepository } from "../../../domain/user/user.repository";
 import dynamoose from "../client";
@@ -7,7 +7,7 @@ import { AppTable } from "../table";
 
 class UserDynamooseRepository implements UserRepository {
   async create(user: User): Promise<void> {
-    await dynamoose.transaction(this.toTransactPut(user));
+    await dynamoose.transaction([this.toTransactPut(user)]);
   }
 
   async findById(id: string): Promise<User | null> {
@@ -46,8 +46,7 @@ class UserDynamooseRepository implements UserRepository {
   }
 
   toTransactPut(user: User) {
-    return [
-      AppTable.transaction.create({
+    return AppTable.transaction.create({
         PK: `USER#${user.id}`,
         SK: "PROFILE",
         entity: "USER",
@@ -55,9 +54,7 @@ class UserDynamooseRepository implements UserRepository {
         name: user.name,
         email: user.email,
         profession: user.profession,
-
       })
-    ];
   }
 }
 

@@ -2,7 +2,7 @@ getUser:
   handler: app/user/src/handler.get
   events:
     - httpApi:
-        path: /user/get
+        path: /user
         method: get
         authorizer:
           name: jwtAuthorizer

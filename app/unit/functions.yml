@@ -2,7 +2,7 @@ createUnit:
   handler: app/unit/src/handler.create
   events:
     - httpApi:
-        path: /unit/create
+        path: /unit
         method: post
         authorizer:
           name: jwtAuthorizer

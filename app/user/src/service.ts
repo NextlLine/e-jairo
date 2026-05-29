@@ -8,7 +8,7 @@ export class UserService {
         try {
             return await this.userRepository.findById(userId);
         } catch (error) {
-            throw new HttpError(500, "Erro ao buscar usuário");
+            throw new HttpError(500, "UserFetchFailed");
         }
     }
 }

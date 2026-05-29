@@ -2,7 +2,7 @@ name: Deploy Full Stack to AWS
 
 on:
   push:
-    branches: [ main ]
+    branches: [ dev, hml, main ]
 
 env:
   AWS_REGION: us-east-1
@@ -10,6 +10,10 @@ env:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    environment: ${{ github.ref_name }}
+
+    env:
+      STAGE: ${{ github.ref_name == 'main' && 'prod' || github.ref_name }}
 
     steps:
       - name: Checkout
@@ -38,11 +42,11 @@ jobs:
         env:
           SERVERLESS_ACCESS_KEY: ${{ secrets.SERVERLESS_ACCESS_KEY }}
         run: |
-          cd auth
-          sls deploy --stage prod
+          cd serverless-auth
+          sls deploy --stage ${STAGE}
 
       - name: Deploy Backend
         env:
           SERVERLESS_ACCESS_KEY: ${{ secrets.SERVERLESS_ACCESS_KEY }}
           AWS_CORS_ALLOWED_ORIGIN: ${{ secrets.AWS_CORS_ALLOWED_ORIGIN }}
-        run: sls deploy --stage prod
+        run: sls deploy --stage ${STAGE}

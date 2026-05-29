@@ -7,6 +7,9 @@ provider:
   runtime: nodejs20.x
   region: us-east-1
   stage: ${opt:stage, 'dev'}
+  stackTags:
+    Environment: ${sls:stage}
+    Service: ${self:service}
 
   httpApi:
     cors:
@@ -49,8 +52,8 @@ provider:
             - dynamodb:DeleteItem
             - dynamodb:Query
           Resource:
-            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:DYNAMODB_TABLE_NAME}
-            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:DYNAMODB_TABLE_NAME}/index/*
+            - Fn::GetAtt: [AppDynamoTable, Arn]
+            - Fn::Sub: ${AppDynamoTable.Arn}/index/*
 
         - Effect: Allow
           Action:
