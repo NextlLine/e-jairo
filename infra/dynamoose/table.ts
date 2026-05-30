@@ -16,25 +16,33 @@ const AppTableSchema = new dynamoose.Schema(
       type: String,
       rangeKey: true,
     },
+
     GSI1PK: {
       type: String,
+      required: false,
       index: {
         name: "GSI1",
         rangeKey: "GSI1SK",
+        project: true,
       },
     },
     GSI1SK: {
       type: String,
+      required: false,
     },
+
     GSI2PK: {
       type: String,
+      required: false,
       index: {
         name: "GSI2",
         rangeKey: "GSI2SK",
+        project: true,
       },
     },
     GSI2SK: {
       type: String,
+      required: false,
     },
 
     entity: {

@@ -1,0 +1,45 @@
+generateUploadUrl:
+  handler: app/document/src/handler.generateUploadUrl
+  events:
+    - httpApi:
+        path: /document/upload-url
+        method: post
+        authorizer:
+          name: jwtAuthorizer
+
+saveMetadata:
+  handler: app/document/src/handler.saveMetadata
+  events:
+    - httpApi:
+        path: /document/metadata
+        method: post
+        authorizer:
+          name: jwtAuthorizer
+
+generateViewUrl:
+  handler: app/document/src/handler.generateViewUrl
+  events:
+    - httpApi:
+        path: /document/view-url
+        method: post
+        authorizer:
+          name: jwtAuthorizer
+
+
+deleteDocument:
+  handler: app/document/src/handler.deleteDocument
+  events:
+    - httpApi:
+        path: /document
+        method: delete
+        authorizer:
+          name: jwtAuthorizer
+          
+getDocuments:
+  handler: app/document/src/handler.getDocuments
+  events:
+    - httpApi:
+        path: /documents
+        method: get
+        authorizer:
+          name: jwtAuthorizer

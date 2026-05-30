@@ -1,27 +1,13 @@
+import { Address } from "../../../domain/address/address.entity";
+import { UserRole } from "../../../domain/type/UserRole";
 import { User } from "../../../domain/user/user.entity";
 import { UserRepository } from "../../../domain/user/user.repository";
+import dynamoose from "../client";
 import { AppTable } from "../table";
 
 class UserDynamooseRepository implements UserRepository {
-
-  async create(user: User): Promise<User> {
-    await AppTable.create({
-      PK: `USER#${user.id}`,
-      SK: "PROFILE",
-
-      GSI1PK: `TEAM#${user.teamId}`,
-      GSI1SK: `USER#${user.id}`,
-
-      entity: "USER",
-
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      role: user.role,
-      teamId: user.teamId,
-    });
-
-    return user;
+  async create(user: User): Promise<void> {
+    await dynamoose.transaction([this.toTransactPut(user)]);
   }
 
   async findById(id: string): Promise<User | null> {
@@ -33,52 +19,42 @@ class UserDynamooseRepository implements UserRepository {
     if (!item) return null;
 
     return new User(
-      item.id,
+      id,
       item.email,
       item.name,
-      item.role,
-      item.teamId
+      item.profession,
+      UserRole.USER
     );
   }
 
-  async update(id: string, updateData: Partial<User>): Promise<User> {
-    const updated = await AppTable.update(
-      { PK: `USER#${id}`, SK: "PROFILE" },
-      updateData
-    );
-
-    return new User(
-      updated.id,
-      updated.email,
-      updated.name,
-      updated.role,
-      updated.teamId
-    );
-  }
-
-  async delete(id: string): Promise<void> {
-    await AppTable.delete({
-      PK: `USER#${id}`,
-      SK: "PROFILE",
-    });
-  }
-
-  async listByTeam(teamId: string): Promise<User[]> {
+  async findByRegion(regionKey: string): Promise<User[]> {
     const result = await AppTable.query("GSI1PK")
-      .eq(`TEAM#${teamId}`)
+      .eq(regionKey)
       .using("GSI1")
       .exec();
 
     return result.map(
-      item =>
+      (item) =>
         new User(
-          item.id,
+          item.PK.replace("USER#", ""),
           item.email,
           item.name,
-          item.role,
-          item.teamId
+          item.profession,
+          UserRole.USER
         )
     );
+  }
+
+  toTransactPut(user: User) {
+    return AppTable.transaction.create({
+        PK: `USER#${user.id}`,
+        SK: "PROFILE",
+        entity: "USER",
+
+        name: user.name,
+        email: user.email,
+        profession: user.profession,
+      })
   }
 }
 

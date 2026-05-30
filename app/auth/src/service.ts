@@ -1,24 +1,25 @@
 import z from "zod";
-import {
-  CognitoIdentityProviderClient,
-  CognitoIdentityProviderClientConfig,
-  SignUpCommand,
-  ConfirmSignUpCommand,
-  InitiateAuthCommand,
-  AuthFlowType,
-} from "@aws-sdk/client-cognito-identity-provider";
 import { UserRepository } from "../../../domain/user/user.repository";
-import { TeamRepository } from "../../../domain/team/team.repository";
 import { User } from "../../../domain/user/user.entity";
-import { UserRoles } from "../../../domain/types/UserRoles";
+import {
+  ProfessionValues,
+} from "../../../domain/type/profession";
+import { AuthProvider } from "../../../infra/auth/auth.provider";
+import { TeamRepository } from "../../../domain/team/team.repository";
 import { HttpError } from "../../../shared/errors/http-error";
-import { mapToHttpError } from "../../../shared/errors/map-http-error";
+import { UserRole } from "../../../domain/type/UserRole";
+import { TeamMembership } from "../../../domain/team_membership/team_membership.entity";
+import { UnitMembership } from "../../../domain/unit_membership/unit_membership.entity";
+import { TeamRole } from "../../../domain/type/TeamRole";
+import { UnitRole } from "../../../domain/type/UnitRole";
+import { UserTransactionRepository } from "../../../domain/user/user_transaction.repository";
 
 const SignUpUserSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8).max(100),
   name: z.string(),
-  teamId: z.string(),
+  profession: z.enum(ProfessionValues),
+  teamCode: z.string(),
 });
 
 const SignInUserSchema = z.object({
@@ -31,108 +32,64 @@ const ConfirmCodeSchema = z.object({
   code: z.string().length(6),
 });
 
-const config: CognitoIdentityProviderClientConfig = {
-  region: process.env.AWS_REGION || "us-east-1",
-};
-const client = new CognitoIdentityProviderClient(config);
-
 export class AuthService {
-  constructor(private readonly userRepository: UserRepository, private readonly teamRepository: TeamRepository) { }
+  constructor(
+    private readonly authProvider: AuthProvider,
+    private readonly teamRepository: TeamRepository,
+    private readonly userTransactionRepository: UserTransactionRepository
+  ) { }
 
   async signUp(userData: z.infer<typeof SignUpUserSchema>) {
     const validatedData = SignUpUserSchema.parse(userData);
-    const team = await this.teamRepository.findById(validatedData.teamId);
 
+    const team = await this.teamRepository.findById(validatedData.teamCode);
     if (!team) {
-      throw new HttpError(404, "Time não encontrado");
+      throw new HttpError(404, "TeamCodeInvalid");
     }
 
-    if (!process.env.COGNITO_CLIENT_ID) {
-      throw new HttpError(500, "COGNITO_CLIENT_ID não configurado");
-    }
+    const { userId } = await this.authProvider.signUp({
+      email: validatedData.email,
+      password: validatedData.password,
+    });
 
-    try {
-      const input = new SignUpCommand({
-        ClientId: process.env.COGNITO_CLIENT_ID!,
-        Username: validatedData.email,
-        Password: validatedData.password,
-        UserAttributes: [{ Name: "email", Value: validatedData.email },],
-      });
+    const user = new User(
+      userId,
+      validatedData.email,
+      validatedData.name,
+      validatedData.profession,
+      UserRole.USER
+    );
+    
+    const teamMembership = new TeamMembership(
+      userId,
+      team.id,
+      TeamRole.MEMBER
+    );
 
-      const response = await client.send(input);
+    const unitMembership = new UnitMembership(
+      userId,
+      team.unitId,
+      UnitRole.MEMBER
+    )
 
-      if (!response.UserSub || response.UserConfirmed === undefined) {
-        throw new HttpError(500, "Falha ao registrar usuário");
-      }
+    await this.userTransactionRepository.createUserWithMemberships(
+      user,
+      teamMembership,
+      unitMembership
+    );
 
-      await this.userRepository.create(
-        new User(
-          response.UserSub,
-          validatedData.email,
-          validatedData.name,
-          UserRoles.USER,
-          validatedData.teamId,
-        )
-      );
-
-    } catch (err: any) {
-      return mapToHttpError(err, "registrar usuário");
-    }
+    return { userId };
   }
 
-  async confirmCode(codeData: z.infer<typeof ConfirmCodeSchema>) {
-    const validatedData = ConfirmCodeSchema.parse(codeData);
+  async confirmCode(data: z.infer<typeof ConfirmCodeSchema>) {
+    const validatedData = ConfirmCodeSchema.parse(data);
 
-    if (!process.env.COGNITO_CLIENT_ID || !process.env.COGNITO_USER_POOL_ID) {
-      throw new HttpError(500, "Cognito env not configured");
-    }
-
-    const input = {
-      ClientId: process.env.COGNITO_CLIENT_ID!,
-      Username: validatedData.email,
-      ConfirmationCode: validatedData.code,
-    };
-
-    try {
-      const command = new ConfirmSignUpCommand(input);
-      const response = await client.send(command);
-
-      return {
-        session: response.Session,
-      };
-    } catch (err: any) {
-      return mapToHttpError(err, "confirmar código de verificação");
-    }
+    return this.authProvider.confirmCode(validatedData);
   }
 
-  async signIn(userData: z.infer<typeof SignInUserSchema>) {
-    const validatedData = SignInUserSchema.parse(userData);
+  async signIn(data: z.infer<typeof SignInUserSchema>) {
+    const validatedData = SignInUserSchema.parse(data);
 
-    if (!process.env.COGNITO_CLIENT_ID) {
-      throw new HttpError(500, "COGNITO_CLIENT_ID não configurado");
-    }
-
-    const input = {
-      AuthFlow: AuthFlowType.USER_PASSWORD_AUTH,
-      AuthParameters: {
-        USERNAME: validatedData.email,
-        PASSWORD: validatedData.password,
-      },
-      ClientId: process.env.COGNITO_CLIENT_ID!,
-    };
-
-    const command = new InitiateAuthCommand(input);
-
-    try {
-      const response = await client.send(command);
-
-      return {
-        authenticationResult: response.AuthenticationResult,
-        session: response.Session,
-      };
-
-    } catch (err: any) {
-      return mapToHttpError(err, "login");
-    }
+    return this.authProvider.signIn(validatedData);
   }
 }

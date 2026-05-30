@@ -1,8 +1,7 @@
 import { User } from "./user.entity";
-
 export interface UserRepository {
+  create(user: User): Promise<void>;
   findById(id: string): Promise<User | null>;
-  create(userData: User): Promise<User>;
-  update(id: string, updateData: Partial<User>): Promise<User>;
-  delete(id: string): Promise<void>;
+  findByRegion(regionKey: string): Promise<User[]>;
+  toTransactPut(item: User): any;
 }

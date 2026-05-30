@@ -2,25 +2,25 @@ createAdvertisement:
   handler: app/advertisement/src/handler.create
   events:
     - httpApi:
-        path: /advertisement/create
+        path: /advertisements
         method: post
         authorizer:
           name: jwtAuthorizer
 
-listByTeam:
-  handler: app/advertisement/src/handler.listByTeam
+listAdvertisements:
+  handler: app/advertisement/src/handler.list
   events:
     - httpApi:
-        path: /advertisement/get
+        path: /advertisements
         method: get
         authorizer:
           name: jwtAuthorizer
-  
+
 deleteAdvertisement:
   handler: app/advertisement/src/handler.deleteById
   events:
     - httpApi:
-        path: /advertisement/delete/{id}
+        path: /advertisements/{id}
         method: delete
         authorizer:
           name: jwtAuthorizer

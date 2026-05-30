@@ -1,48 +1,48 @@
 import z from "zod";
 import { TeamRepository } from "../../../domain/team/team.repository";
-import { UnityRepository } from "../../../domain/unity/unity.repository";
+import { UnitRepository } from "../../../domain/unit/unit.repository";
 import { Team } from "../../../domain/team/team.entity";
 import { randomUUID } from "crypto";
 import { HttpError } from "../../../shared/errors/http-error";
-import { mapToHttpError } from "../../../shared/errors/map-http-error";
-import { UserRoles } from "../../../domain/types/UserRoles";
-import { verifyUserRole } from "../../../infra/dynamoose/shared/verify-user-permission";
+import { TeamRole } from "../../../domain/type/TeamRole";
 import { UserRepository } from "../../../domain/user/user.repository";
+import { verifyUserRole } from "../../../shared/verification/verifyUserRole";
 
 const CreateTeamSchema = z.object({
   name: z.string().min(3).max(50),
-  unityId: z.string().uuid(),
+  unitId: z.string().uuid(),
 });
 
 export class TeamService {
   constructor(
     private readonly teamRepository: TeamRepository, 
-    private readonly unityRepository: UnityRepository, 
-    private readonly userRepository: UserRepository
+    private readonly unitRepository: UnitRepository, 
+    private readonly userRepository: UserRepository,
   ) { }
 
-  async createTeam(teamData: z.infer<typeof CreateTeamSchema>, userSub: string) {
-    await verifyUserRole(userSub, [UserRoles.ADMIN], this.userRepository);
-    
+  async createTeam(teamData: z.infer<typeof CreateTeamSchema>, userSub: string) {    
     const validatedData = CreateTeamSchema.parse(teamData);
 
-    const existingUnity = await this.unityRepository.findById(validatedData.unityId);
-    if (!existingUnity) {
-      throw new HttpError(404, "Unidade não encontrada");
+    const existingUnit = await this.unitRepository.findById(validatedData.unitId);
+    if (!existingUnit) {
+      throw new HttpError(404, "UnitNotFound");
     }
+
+    await verifyUserRole(userSub, [TeamRole.ADMIN], this.userRepository);
 
     const team = new Team(
       randomUUID(),
       validatedData.name,
-      validatedData.unityId,
+      validatedData.unitId,
     );
 
     try {
       await this.teamRepository.create(team);
+        
       return team;
 
     } catch (error) {
-      return mapToHttpError(error, "criar time");
+      throw new HttpError(500, "TeamCreateFailed");
     }
   }
 }

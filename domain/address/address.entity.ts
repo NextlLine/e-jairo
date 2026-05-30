@@ -1,9 +1,13 @@
 export class Address {
-    constructor(
-        public readonly street?: string,
-        public readonly city?: string,
-        public readonly state?: string,
-        public readonly zipCode?: string,
-        public readonly country?: string,
-    ) { }
+  constructor(
+    public street: string,
+    public city: string,
+    public state: string,
+    public zipCode: string,
+    public country: string = "Brasil"
+  ) {}
+
+  toRegionKey() {
+    return `STATE#${this.state.toUpperCase()}#CITY#${this.city.toUpperCase()}`;
   }
+}

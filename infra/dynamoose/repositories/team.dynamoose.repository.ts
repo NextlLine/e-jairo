@@ -1,22 +1,43 @@
 import { Team } from "../../../domain/team/team.entity";
 import { TeamRepository } from "../../../domain/team/team.repository";
+import dynamoose from "../client";
 import { AppTable } from "../table";
 
 class TeamDynamooseRepository implements TeamRepository {
-  async create(team: Team): Promise<Team> {
-    await AppTable.create({
+  toTransactPut(team: Team) {
+    return [
+      AppTable.transaction.create({
       PK: `TEAM#${team.id}`,
       SK: "PROFILE",
 
-      GSI2PK: `UNITY#${team.unityId}`,
+      GSI2PK: `UNIT#${team.unitId}`,
       GSI2SK: `TEAM#${team.id}`,
 
       entity: "TEAM",
 
       ...team,
-    });
+    })
+    ]
+  }
+
+  async create(team: Team): Promise<Team> {
+    await dynamoose.transaction(this.toTransactPut(team));
 
     return team;
+  }
+
+  async update(teamId: string, data: Partial<Team>): Promise<Team> {
+    const updated = await AppTable.update(
+      { PK: `TEAM#${teamId}`, SK: "PROFILE" },
+      data,
+    );
+
+    return new Team(
+      updated.id,
+      updated.name,
+      updated.unitId,
+      updated.isActive ?? true,
+    );
   }
 
   async findById(teamId: string): Promise<Team | null> {
@@ -30,20 +51,22 @@ class TeamDynamooseRepository implements TeamRepository {
     return new Team(
       item.id,
       item.name,
-      item.unityId,
+      item.unitId,
+      item.isActive ?? true,
     );
   }
 
-  async listByUnity(unityId: string): Promise<Team[]> {
+  async listByUnit(unitId: string): Promise<Team[]> {
     const items = await AppTable.query("GSI2PK")
-      .eq(`UNITY#${unityId}`)
+      .eq(`UNIT#${unitId}`)
       .using("GSI2")
       .exec();
 
     return items.map((item: any) => new Team(
       item.id,
       item.name,
-      item.unityId,
+      item.unitId,
+      item.isActive ?? true,
     ));
   }
 }

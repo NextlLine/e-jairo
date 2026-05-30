@@ -5,6 +5,7 @@
     "sourceMap": true,
     "allowJs": true,
     "target": "es5",
+    "ignoreDeprecations": "6.0",
     "outDir": ".build",
     "moduleResolution": "node",
     "esModuleInterop": true,
@@ -13,6 +14,6 @@
     "rootDir": "./",
     "types": ["node", "aws-lambda"],
   },
-    "include": ["app/**/*.ts"],
+    "include": ["app/**/*.ts", "infra/auth/errors.ts", "infra/auth/auth.provider.ts"],
   "exclude": ["node_modules", "dist"]
 }

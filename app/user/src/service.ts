@@ -1,5 +1,5 @@
 import { UserRepository } from "../../../domain/user/user.repository";
-import { mapToHttpError } from "../../../shared/errors/map-http-error";
+import { HttpError } from "../../../shared/errors/http-error";
 
 export class UserService {
     constructor(private readonly userRepository: UserRepository) { }
@@ -8,7 +8,7 @@ export class UserService {
         try {
             return await this.userRepository.findById(userId);
         } catch (error) {
-            return mapToHttpError(error, "criar time");
+            throw new HttpError(500, "UserFetchFailed");
         }
     }
 }

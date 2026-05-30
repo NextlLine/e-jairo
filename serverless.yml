@@ -1,19 +1,20 @@
 org: j41r0
 app: e-jairo
 service: e-jairo-service
-useDotenv: true
 
 provider:
   name: aws
   runtime: nodejs20.x
   region: us-east-1
+  stage: ${opt:stage, 'dev'}
+  stackTags:
+    Environment: ${sls:stage}
+    Service: ${self:service}
 
   httpApi:
     cors:
       allowedOrigins:
         - ${env:AWS_CORS_ALLOWED_ORIGIN}
-        # Don't forget to comment this before commiting to main
-        # - ${env:LOCAL_CORS_ALLOWED_ORIGIN}
       allowedHeaders:
         - Content-Type
         - Authorization
@@ -28,15 +29,17 @@ provider:
     authorizers:
       jwtAuthorizer:
         identitySource: $request.header.Authorization
-        issuerUrl: https://cognito-idp.${self:provider.region}.amazonaws.com/${env:COGNITO_USER_POOL_ID}
+        issuerUrl: https://cognito-idp.${self:provider.region}.amazonaws.com/${cf:e-jairo-auth-${sls:stage}.CognitoUserPoolId}
         audience:
-          - ${env:COGNITO_CLIENT_ID}
+          - ${cf:e-jairo-auth-${sls:stage}.CognitoUserPoolClientId}
 
   environment:
-    DYNAMODB_TABLE_NAME: ${env:DYNAMODB_TABLE_NAME}
-    COGNITO_CLIENT_ID: ${env:COGNITO_CLIENT_ID}
-    COGNITO_USER_POOL_ID: ${env:COGNITO_USER_POOL_ID}
-    AWS_CORS_ALLOWED_ORIGIN: ${env:AWS_CORS_ALLOWED_ORIGIN}
+    COGNITO_USER_POOL_ID: ${cf:e-jairo-auth-${sls:stage}.CognitoUserPoolId}
+    COGNITO_CLIENT_ID: ${cf:e-jairo-auth-${sls:stage}.CognitoUserPoolClientId}
+    S3_BUCKET_NAME:
+      Ref: DocumentsBucket
+    DYNAMODB_TABLE_NAME:
+      Ref: AppDynamoTable
 
   iam:
     role:
@@ -48,23 +51,33 @@ provider:
             - dynamodb:UpdateItem
             - dynamodb:DeleteItem
             - dynamodb:Query
+            - dynamodb:Scan
           Resource:
-            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:DYNAMODB_TABLE_NAME}
-            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:DYNAMODB_TABLE_NAME}/index/*
+            - Fn::GetAtt: [AppDynamoTable, Arn]
+            - Fn::Sub: ${AppDynamoTable.Arn}/index/*
+
+        - Effect: Allow
+          Action:
+            - s3:PutObject
+            - s3:GetObject
+            - s3:DeleteObject
+          Resource:
+            - Fn::Sub: arn:aws:s3:::${DocumentsBucket}/*
 
 functions:
   - ${file(./app/auth/functions.yml)}
   - ${file(./app/user/functions.yml)}
   - ${file(./app/team/functions.yml)}
-  - ${file(./app/unity/functions.yml)}
+  - ${file(./app/unit/functions.yml)}
   - ${file(./app/advertisement/functions.yml)}
+  - ${file(./app/document/functions.yml)}
 
 resources:
   Resources:
     AppDynamoTable:
       Type: AWS::DynamoDB::Table
       Properties:
-        TableName: ${env:DYNAMODB_TABLE_NAME}
+        TableName: ${self:service}-${sls:stage}-table
         BillingMode: PAY_PER_REQUEST
 
         AttributeDefinitions:
@@ -106,6 +119,31 @@ resources:
             Projection:
               ProjectionType: ALL
 
+    DocumentsBucket:
+      Type: AWS::S3::Bucket
 
-plugins:
-  - serverless-offline
+      Properties:
+        CorsConfiguration:
+          CorsRules:
+            - AllowedOrigins:
+                - ${env:AWS_CORS_ALLOWED_ORIGIN}
+              AllowedMethods:
+                - GET
+                - PUT
+                - POST
+                - DELETE
+                - HEAD
+              AllowedHeaders:
+                - '*'
+              MaxAge: 6000
+        PublicAccessBlockConfiguration:
+          BlockPublicAcls: true
+          BlockPublicPolicy: true
+          IgnorePublicAcls: true
+          RestrictPublicBuckets: true
+        VersioningConfiguration:
+          Status: Enabled
+
+custom:
+  dotenv:
+    path: .env.${sls:stage}

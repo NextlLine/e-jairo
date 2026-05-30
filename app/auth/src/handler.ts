@@ -1,68 +1,69 @@
-import type { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
-import { AuthService } from "./service";
-import { dynamooseUserRepository } from "../../../infra/dynamoose/repositories/user.dynamoose.repository";
-import { dynamooseTeamRepository } from "../../../infra/dynamoose/repositories/team.dynamoose.repository";
+import type {
+  APIGatewayProxyEvent,
+  APIGatewayProxyResult,
+} from "aws-lambda";
 import { HttpError } from "../../../shared/errors/http-error";
-import { formatHttpErrorResponse } from "../../../shared/errors/format-http-error-response";
+import { formatHttpErrorResponse } from "../../../shared/errorHandling/format-http-error-response";
+import { AuthService } from "./service";
+import { CognitoAuthProvider } from "../../../infra/auth/cognito-auth.provider";
+import { dynamooseTeamRepository } from "../../../infra/dynamoose/repositories/team.dynamoose.repository";
+import { dynamooseUserTransactionRepository } from "../../../infra/dynamoose/transactions/user_transaction.dynamoose.repository";
 
-const authService = new AuthService(dynamooseUserRepository, dynamooseTeamRepository);
+const authProvider = new CognitoAuthProvider();
 
-export async function signUp(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-  try {
-    if (!event.body) {
-      throw new HttpError(400, "Usuário nao fornecido");
-    }
+const authService = new AuthService(
+  authProvider,
+  dynamooseTeamRepository,
+  dynamooseUserTransactionRepository
+);
 
-    const body = JSON.parse(event.body!);
-    await authService.signUp(body);
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify({ message: "Usuário cadastrado com sucesso" }),
-    };
-  } catch (err) {
-    return formatHttpErrorResponse(err, "Erro ao realizar cadastro");
+export async function signUp(
+  event: APIGatewayProxyEvent
+): Promise<APIGatewayProxyResult> {
+  if (!event.body) {
+    throw new HttpError(400, "UserNotProvided");
   }
+
+  const body = JSON.parse(event.body);
+  await authService.signUp(body);
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify({
+      message: "Usuário cadastrado com sucesso",
+    }),
+  };
 }
 
-export async function confirmCode(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-  try {
-    if (!event.body) {
-      throw new HttpError(400, "Usuário nao fornecido");
-    }
-
-    const body = JSON.parse(event.body!);
-
-    const response = await authService.confirmCode(body);
-    return {
-      statusCode: 200,
-      body: JSON.stringify(response),
-    };
-  } catch (err) {
-    return formatHttpErrorResponse(err, "Erro ao realizar cadastro");
+export async function confirmCode(
+  event: APIGatewayProxyEvent
+): Promise<APIGatewayProxyResult> {
+  if (!event.body) {
+    throw new HttpError(400, "UserNotProvided");
   }
+
+  const body = JSON.parse(event.body);
+  const response = await authService.confirmCode(body);
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify(response),
+  };
 }
 
 export async function signIn(
   event: APIGatewayProxyEvent
 ): Promise<APIGatewayProxyResult> {
-  try {
-    if (!event.body) {
-      throw new HttpError(400, "Usuário nao fornecido");
-    }
-
-    const body = JSON.parse(event.body);
-    const response = await authService.signIn(body);
-
-    return {
-      statusCode: 200,
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(response),
-    };
-
-  } catch (err) {
-    return formatHttpErrorResponse(err, "Erro ao realizar login");
+  if (!event.body) {
+    throw new HttpError(400, "UserNotProvided");
   }
+
+  const body = JSON.parse(event.body);
+  const response = await authService.signIn(body);
+
+  return {
+    statusCode: 200,
+    headers: { "Content-Type": "application/json", },
+    body: JSON.stringify(response),
+  };
 }

@@ -2,7 +2,7 @@ name: Deploy Full Stack to AWS
 
 on:
   push:
-    branches: [ main ]
+    branches: [ dev, hml, main ]
 
 env:
   AWS_REGION: us-east-1
@@ -10,6 +10,10 @@ env:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    environment: ${{ github.ref_name }}
+
+    env:
+      STAGE: ${{ github.ref_name == 'main' && 'prod' || github.ref_name }}
 
     steps:
       - name: Checkout
@@ -34,11 +38,15 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: Deploy Auth Stack
+        env:
+          SERVERLESS_ACCESS_KEY: ${{ secrets.SERVERLESS_ACCESS_KEY }}
+        run: |
+          cd serverless-auth
+          sls deploy --stage ${STAGE}
+
       - name: Deploy Backend
         env:
           SERVERLESS_ACCESS_KEY: ${{ secrets.SERVERLESS_ACCESS_KEY }}
-          COGNITO_CLIENT_ID: ${{ secrets.COGNITO_CLIENT_ID }}
-          COGNITO_USER_POOL_ID: ${{ secrets.COGNITO_USER_POOL_ID }}
-          DYNAMODB_TABLE_NAME: ${{ secrets.DYNAMODB_TABLE_NAME }}
           AWS_CORS_ALLOWED_ORIGIN: ${{ secrets.AWS_CORS_ALLOWED_ORIGIN }}
-        run: sls deploy
+        run: sls deploy --stage ${STAGE}
