@@ -1,4 +1,4 @@
-import { Profession } from "../type/profession";
+import { Profession } from "../type/Profession";
 import { UserRole } from "../type/UserRole";
 export class User {
   constructor(

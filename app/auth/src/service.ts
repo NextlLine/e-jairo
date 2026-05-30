@@ -9,7 +9,7 @@ import { UnitMembership } from "../../../domain/unit_membership/unit_membership.
 import { TeamRole } from "../../../domain/type/TeamRole";
 import { UnitRole } from "../../../domain/type/UnitRole";
 import { UserTransactionRepository } from "../../../domain/user/user_transaction.repository";
-import { ProfessionValues } from "../../../domain/type/profession";
+import { ProfessionValues } from "../../../domain/type/Profession";
 
 const SignUpUserSchema = z.object({
   email: z.string().email(),
