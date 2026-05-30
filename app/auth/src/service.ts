@@ -1,9 +1,5 @@
 import z from "zod";
-import { UserRepository } from "../../../domain/user/user.repository";
 import { User } from "../../../domain/user/user.entity";
-import {
-  ProfessionValues,
-} from "../../../domain/type/profession";
 import { AuthProvider } from "../../../infra/auth/auth.provider";
 import { TeamRepository } from "../../../domain/team/team.repository";
 import { HttpError } from "../../../shared/errors/http-error";
@@ -13,6 +9,7 @@ import { UnitMembership } from "../../../domain/unit_membership/unit_membership.
 import { TeamRole } from "../../../domain/type/TeamRole";
 import { UnitRole } from "../../../domain/type/UnitRole";
 import { UserTransactionRepository } from "../../../domain/user/user_transaction.repository";
+import { ProfessionValues } from "../../../domain/type/profession";
 
 const SignUpUserSchema = z.object({
   email: z.string().email(),
