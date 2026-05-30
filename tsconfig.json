@@ -5,6 +5,7 @@
     "sourceMap": true,
     "allowJs": true,
     "target": "es5",
+    "ignoreDeprecations": "6.0",
     "outDir": ".build",
     "moduleResolution": "node",
     "esModuleInterop": true,

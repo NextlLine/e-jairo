@@ -4,15 +4,10 @@ import { DocumentMetadata } from "../../../domain/document/document.metadata.ent
 import { DocQueryResult } from "../../../domain/document/dto/doc_query_result.entity";
 
 class DocumentDynamooseRepository implements DocumentMetadataRepository {
-  findWithFilters(unitId: string, category?: string, limit?: number, cursor?: number): Promise<DocQueryResult> {
-      throw new Error("Method not implemented.");
-  }
-
   async create(document: DocumentMetadata): Promise<void> {
-
     await AppTable.create({
-      PK: `UNIT#${document.unitId}`,
-      SK: `DOCUMENT#${document.id}`,
+      PK: `DOCUMENT#${document.id}`,
+      SK: `METADATA#${document.id}`,
 
       entity: "DOCUMENT",
 
@@ -27,56 +22,78 @@ class DocumentDynamooseRepository implements DocumentMetadataRepository {
   }
 
   async findById(documentId: string): Promise<DocumentMetadata | null> {
+    const item = await AppTable.get({
+      PK: `DOCUMENT#${documentId}`,
+      SK: `METADATA#${documentId}`,
+    });
 
-    const result = await AppTable.query("SK")
-      .eq(`DOCUMENT#${documentId}`)
-      .using("GSI2")
-      .exec();
-
-    if (!result.count) return null;
-
-    const item = result[0];
+    if (!item) return null;
 
     return new DocumentMetadata(
       item.documentId,
-      item.PK.replace("UNIT#", ""),
       item.name,
       item.key,
       item.contentType,
       item.size,
-      item.category
+      item.category,
+      item.createdAt,
     );
   }
 
-  async findAllByUnitId(unitId: string): Promise<DocumentMetadata[]> {
+  async findAll(): Promise<DocumentMetadata[]> {
+    const result = await AppTable.scan("entity").eq("DOCUMENT").exec();
 
-    const result = await AppTable.query("PK")
-      .eq(`UNIT#${unitId}`)
-      .where("SK")
-      .beginsWith("DOCUMENT#")
-      .exec();
+    return result.map(
+      (item) =>
+        new DocumentMetadata(
+          item.documentId,
+          item.name,
+          item.key,
+          item.contentType,
+          item.size,
+          item.category,
+          item.createdAt,
+        ),
+    );
+  }
 
-    return result.map(item =>
-      new DocumentMetadata(
+  async findWithFilters(
+    category?: string,
+    limit?: number,
+    cursor?: number,
+  ): Promise<DocQueryResult> {
+    let scanner: any = AppTable.scan("entity").eq("DOCUMENT");
+
+    if (category) {
+      scanner = scanner.where("category").eq(category);
+    }
+
+    if (limit) {
+      scanner = scanner.limit(limit);
+    }
+
+    const result = await scanner.exec();
+
+    const documents = result.map((item: DocumentMetadata) => {
+      return new DocumentMetadata(
         item.documentId,
-        unitId,
         item.name,
         item.key,
         item.contentType,
         item.size,
-        item.category
-      )
-    );
+        item.category,
+        item.createdAt,
+      );
+    });
+
+    // pagination not implemented — return null cursor
+    return new DocQueryResult(documents, null);
   }
 
   async delete(documentId: string): Promise<void> {
-
-    const metadata = await this.findById(documentId);
-    if (!metadata) return;
-
     await AppTable.delete({
-      PK: `UNIT#${metadata.unitId}`,
-      SK: `DOCUMENT#${documentId}`
+      PK: `DOCUMENT#${documentId}`,
+      SK: `METADATA#${documentId}`,
     });
   }
 }

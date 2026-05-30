@@ -51,6 +51,7 @@ provider:
             - dynamodb:UpdateItem
             - dynamodb:DeleteItem
             - dynamodb:Query
+            - dynamodb:Scan
           Resource:
             - Fn::GetAtt: [AppDynamoTable, Arn]
             - Fn::Sub: ${AppDynamoTable.Arn}/index/*
@@ -122,6 +123,19 @@ resources:
       Type: AWS::S3::Bucket
 
       Properties:
+        CorsConfiguration:
+          CorsRules:
+            - AllowedOrigins:
+                - ${env:AWS_CORS_ALLOWED_ORIGIN}
+              AllowedMethods:
+                - GET
+                - PUT
+                - POST
+                - DELETE
+                - HEAD
+              AllowedHeaders:
+                - '*'
+              MaxAge: 6000
         PublicAccessBlockConfiguration:
           BlockPublicAcls: true
           BlockPublicPolicy: true

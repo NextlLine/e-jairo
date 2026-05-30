@@ -3,7 +3,6 @@ import { DocQueryResult } from "./dto/doc_query_result.entity";
 export interface DocumentMetadataRepository {
     create(documentMetadata: DocumentMetadata): Promise<void>;
     delete(documentId: string): Promise<void>;
-    findAllByUnitId(unitId: string): Promise<Array<DocumentMetadata>>;
     findById(documentId: string):Promise<DocumentMetadata | null>;
-    findWithFilters(unitId: string, category?: string, limit?: number, cursor?: number): Promise<DocQueryResult>;
+    findWithFilters(category?: string, limit?: number, cursor?: number): Promise<DocQueryResult>;
 }

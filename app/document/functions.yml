@@ -16,6 +16,15 @@ saveMetadata:
         authorizer:
           name: jwtAuthorizer
 
+generateViewUrl:
+  handler: app/document/src/handler.generateViewUrl
+  events:
+    - httpApi:
+        path: /document/view-url
+        method: post
+        authorizer:
+          name: jwtAuthorizer
+
 
 deleteDocument:
   handler: app/document/src/handler.deleteDocument
@@ -23,15 +32,6 @@ deleteDocument:
     - httpApi:
         path: /document
         method: delete
-        authorizer:
-          name: jwtAuthorizer
-
-getAllDocuments:
-  handler: app/document/src/handler.getAllDocuments
-  events:
-    - httpApi:
-        path: /document
-        method: get
         authorizer:
           name: jwtAuthorizer
           
