@@ -3,12 +3,13 @@ import { HttpError } from "../../../shared/errors/http-error";
 import { DocumentService } from "./service";
 import { documentS3Repository } from "../../../infra/s3/document.s3.repository";
 import { dynamooseDocumentRepository } from "../../../infra/dynamoose/repositories/document.dynamoose.repository";
+import { dynamooseUserRepository } from "../../../infra/dynamoose/repositories/user.dynamoose.repository";
 import { getUserSub } from "../../../shared/verification/user-sub";
-import { DocumentMetadata } from "../../../domain/document/document.metadata.entity";
 
 const documentService = new DocumentService(
   documentS3Repository,
   dynamooseDocumentRepository,
+  dynamooseUserRepository,
 );
 
 export async function generateUploadUrl(
@@ -19,8 +20,7 @@ export async function generateUploadUrl(
   }
 
   const body = JSON.parse(event.body!);
-
-  const result = await documentService.generateUploadUrl(body);
+  const result = await documentService.generateUploadUrl(body, getUserSub(event));
 
   return {
     statusCode: 200,
@@ -39,7 +39,7 @@ export async function saveMetadata(
   }
 
   const body = JSON.parse(event.body!);
-  await documentService.saveMetadata(body);
+  await documentService.saveMetadata(body, getUserSub(event));
 
   return {
     statusCode: 200,
@@ -75,7 +75,8 @@ export async function deleteDocument(
   }
 
   const documentId = event.pathParameters.id;
-  await documentService.deleteDocument(documentId);
+
+  await documentService.deleteDocument(documentId, getUserSub(event));
 
   return {
     statusCode: 200,
@@ -88,7 +89,8 @@ export async function getDocuments(
 ): Promise<APIGatewayProxyResult> {
   const filters = event.queryStringParameters || {};
 
-  const { documents } = await documentService.getDocuments(filters as any);
+  const { documents, nextCursor } = await documentService.getDocuments(filters as any);
+
   const responseData = documents.map((document) => ({
     id: document.id,
     nome: document.name,
@@ -100,10 +102,12 @@ export async function getDocuments(
     category: document.category,
     createdAt: document.createdAt,
   }));
-  
+
   return {
     statusCode: 200,
-    body: JSON.stringify(responseData),
+    body: JSON.stringify({
+      documents: responseData,
+      nextCursor,
+    }),
   };
 }
-

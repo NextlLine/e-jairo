@@ -3,6 +3,18 @@ import { AppTable } from "../table";
 import { DocumentMetadata } from "../../../domain/document/document.metadata.entity";
 import { DocQueryResult } from "../../../domain/document/dto/doc_query_result.entity";
 
+function encodeCursor(cursor: unknown): string {
+  return Buffer.from(JSON.stringify(cursor)).toString("base64");
+}
+
+function decodeCursor(cursor: string): Record<string, unknown> {
+  try {
+    return JSON.parse(Buffer.from(cursor, "base64").toString("utf8"));
+  } catch {
+    throw new Error("InvalidCursor");
+  }
+}
+
 class DocumentDynamooseRepository implements DocumentMetadataRepository {
   async create(document: DocumentMetadata): Promise<void> {
     await AppTable.create({
@@ -60,12 +72,16 @@ class DocumentDynamooseRepository implements DocumentMetadataRepository {
   async findWithFilters(
     category?: string,
     limit?: number,
-    cursor?: number,
+    cursor?: string,
   ): Promise<DocQueryResult> {
     let scanner: any = AppTable.scan("entity").eq("DOCUMENT");
 
     if (category) {
       scanner = scanner.where("category").eq(category);
+    }
+
+    if (cursor) {
+      scanner = scanner.startAt(decodeCursor(cursor));
     }
 
     if (limit) {
@@ -86,8 +102,9 @@ class DocumentDynamooseRepository implements DocumentMetadataRepository {
       );
     });
 
-    // pagination not implemented — return null cursor
-    return new DocQueryResult(documents, null);
+    const nextCursor = result.lastKey ? encodeCursor(result.lastKey) : null;
+
+    return new DocQueryResult(documents, nextCursor);
   }
 
   async delete(documentId: string): Promise<void> {

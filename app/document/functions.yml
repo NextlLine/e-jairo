@@ -30,7 +30,7 @@ deleteDocument:
   handler: app/document/src/handler.deleteDocument
   events:
     - httpApi:
-        path: /document
+        path: /document/{id}
         method: delete
         authorizer:
           name: jwtAuthorizer

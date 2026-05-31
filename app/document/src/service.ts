@@ -4,6 +4,9 @@ import { HttpError } from "../../../shared/errors/http-error";
 import { DocumentMetadata } from "../../../domain/document/document.metadata.entity";
 import { randomUUID } from "crypto";
 import z from "zod";
+import { UserRepository } from "../../../domain/user/user.repository";
+import { UserRole } from "../../../domain/type/UserRole";
+import { verifyUserRole } from "../../../shared/verification/verifyUserRole";
 
 const GenerateUploadUrlSchema = z.object({
   name: z.string(),
@@ -25,17 +28,20 @@ const SaveMetadataSchema = z.object({
 
 const QuerySchema = z.object({
   category: z.string().optional(),
-  limit: z.number().optional(),
-  cursor: z.number().optional(),
+  limit: z.coerce.number().int().positive().optional(),
+  cursor: z.string().optional(),
 });
 
 export class DocumentService {
   constructor(
     private readonly documentRepository: DocumentRepository,
     private readonly documentMetadataRepository: DocumentMetadataRepository,
+    private readonly userRepository: UserRepository,
   ) { }
 
-  async generateUploadUrl(data: z.infer<typeof GenerateUploadUrlSchema>) {
+  async generateUploadUrl(data: z.infer<typeof GenerateUploadUrlSchema>, userSub: string) {
+    await verifyUserRole(userSub, [UserRole.ADMIN, UserRole.MASTER], this.userRepository);
+
     const validatedData = GenerateUploadUrlSchema.parse(data);
     const documentId = randomUUID();
 
@@ -49,7 +55,9 @@ export class DocumentService {
     };
   }
 
-  async saveMetadata(data: z.infer<typeof SaveMetadataSchema>) {
+  async saveMetadata(data: z.infer<typeof SaveMetadataSchema>, userSub: string) {
+    await verifyUserRole(userSub, [UserRole.ADMIN, UserRole.MASTER], this.userRepository);
+
     const validatedData = SaveMetadataSchema.parse(data);
     const metadata = new DocumentMetadata(
       validatedData.documentId,
@@ -82,7 +90,9 @@ export class DocumentService {
     };
   }
 
-  async deleteDocument(documentId: string) {
+  async deleteDocument(documentId: string, userSub: string) {
+    await verifyUserRole(userSub, [UserRole.ADMIN, UserRole.MASTER], this.userRepository);
+
     const metadata = await this.documentMetadataRepository.findById(documentId);
 
     if (!metadata) {
@@ -93,8 +103,7 @@ export class DocumentService {
 
       await this.documentMetadataRepository.delete(documentId);
 
-      return { message: "Documento deletado com sucesso" };
-   
+    return { message: "Documento deletado com sucesso" };
   }
 
   async getDocuments(query: z.infer<typeof QuerySchema>) {

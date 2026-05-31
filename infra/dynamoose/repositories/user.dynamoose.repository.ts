@@ -23,7 +23,7 @@ class UserDynamooseRepository implements UserRepository {
       item.email,
       item.name,
       item.profession,
-      UserRole.USER
+      item.role
     );
   }
 
@@ -54,6 +54,7 @@ class UserDynamooseRepository implements UserRepository {
         name: user.name,
         email: user.email,
         profession: user.profession,
+        role: UserRole.USER,
       })
   }
 }

@@ -4,5 +4,5 @@ export interface DocumentMetadataRepository {
     create(documentMetadata: DocumentMetadata): Promise<void>;
     delete(documentId: string): Promise<void>;
     findById(documentId: string):Promise<DocumentMetadata | null>;
-    findWithFilters(category?: string, limit?: number, cursor?: number): Promise<DocQueryResult>;
+    findWithFilters(category?: string, limit?: number, cursor?: string): Promise<DocQueryResult>;
 }

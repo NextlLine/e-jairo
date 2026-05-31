@@ -10,6 +10,28 @@ import { TeamRole } from "../../../domain/type/TeamRole";
 import { UnitRole } from "../../../domain/type/UnitRole";
 import { UserTransactionRepository } from "../../../domain/user/user_transaction.repository";
 import { ProfessionValues } from "../../../domain/type/Profession";
+import { UserRepository } from "../../../domain/user/user.repository";
+
+function getSubFromIdToken(idToken: string): string {
+  const payload = idToken.split(".")[1];
+
+  if (!payload) {
+    throw new HttpError(500, "InvalidTokenPayload");
+  }
+
+  const normalizedPayload = payload.replace(/-/g, "+").replace(/_/g, "/");
+  const padding = normalizedPayload.length % 4;
+  const base64Payload = normalizedPayload + (padding ? "=".repeat(4 - padding) : "");
+  const decodedPayload = Buffer.from(base64Payload, "base64").toString("utf8");
+
+  const parsedPayload = JSON.parse(decodedPayload) as { sub?: string };
+
+  if (!parsedPayload.sub) {
+    throw new HttpError(500, "InvalidTokenPayload");
+  }
+
+  return parsedPayload.sub;
+}
 
 const SignUpUserSchema = z.object({
   email: z.string().email(),
@@ -33,7 +55,8 @@ export class AuthService {
   constructor(
     private readonly authProvider: AuthProvider,
     private readonly teamRepository: TeamRepository,
-    private readonly userTransactionRepository: UserTransactionRepository
+    private readonly userTransactionRepository: UserTransactionRepository,
+    private readonly userRepository: UserRepository,
   ) { }
 
   async signUp(userData: z.infer<typeof SignUpUserSchema>) {
@@ -86,7 +109,17 @@ export class AuthService {
 
   async signIn(data: z.infer<typeof SignInUserSchema>) {
     const validatedData = SignInUserSchema.parse(data);
+    const authResult = await this.authProvider.signIn(validatedData);
+    const userSub = getSubFromIdToken(authResult.idToken);
+    const user = await this.userRepository.findById(userSub);
 
-    return this.authProvider.signIn(validatedData);
+    if (!user) {
+      throw new HttpError(404, "UserNotFound");
+    }
+
+    return {
+      ...authResult,
+      role: user.role,
+    };
   }
 }

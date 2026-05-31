@@ -3,18 +3,19 @@ import type {
   APIGatewayProxyResult,
 } from "aws-lambda";
 import { HttpError } from "../../../shared/errors/http-error";
-import { formatHttpErrorResponse } from "../../../shared/errorHandling/format-http-error-response";
 import { AuthService } from "./service";
 import { CognitoAuthProvider } from "../../../infra/auth/cognito-auth.provider";
 import { dynamooseTeamRepository } from "../../../infra/dynamoose/repositories/team.dynamoose.repository";
 import { dynamooseUserTransactionRepository } from "../../../infra/dynamoose/transactions/user_transaction.dynamoose.repository";
+import { dynamooseUserRepository } from "../../../infra/dynamoose/repositories/user.dynamoose.repository";
 
 const authProvider = new CognitoAuthProvider();
 
 const authService = new AuthService(
   authProvider,
   dynamooseTeamRepository,
-  dynamooseUserTransactionRepository
+  dynamooseUserTransactionRepository,
+  dynamooseUserRepository
 );
 
 export async function signUp(
