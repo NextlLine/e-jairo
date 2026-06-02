@@ -4,8 +4,8 @@ import { s3 } from './client';
 
 export class DocumentS3Repository implements DocumentRepository {
 
-  async generatePresignedUrl(documentId: string, contentType: string): Promise<{ uploadUrl: string; key: string }> {
-    const key = `documents/${documentId}`;
+  async generatePresignedUrl(id: string, contentType: string): Promise<{ uploadUrl: string; key: string }> {
+    const key = `documents/${id}`;
 
     const url = await s3.getSignedUrlPromise('putObject', {
       Bucket: process.env.S3_BUCKET_NAME!,
@@ -44,8 +44,8 @@ export class DocumentS3Repository implements DocumentRepository {
     }).promise();
   }
 
-  async delete(documentId: string) {
-    const key = `documents/${documentId}`;
+  async delete(id: string) {
+    const key = `documents/${id}`;
 
     await s3.deleteObject({
       Bucket: process.env.S3_BUCKET_NAME!,
