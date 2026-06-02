@@ -2,17 +2,50 @@ import { DocumentMetadataRepository } from "../../../domain/document/document.me
 import { AppTable } from "../table";
 import { DocumentMetadata } from "../../../domain/document/document.metadata.entity";
 import { DocQueryResult } from "../../../domain/document/dto/doc_query_result.entity";
+import { HttpError } from "../../../shared/errors/http-error";
+import normalizeForSearch from "../../../shared/utils/normalize-string";
 
 function encodeCursor(cursor: unknown): string {
   return Buffer.from(JSON.stringify(cursor)).toString("base64");
 }
 
-function decodeCursor(cursor: string): Record<string, unknown> {
+function decodeCursor(cursor: string): { offset: number; queryKey: string } {
   try {
-    return JSON.parse(Buffer.from(cursor, "base64").toString("utf8"));
+    const decoded = JSON.parse(Buffer.from(cursor, "base64").toString("utf8"));
+
+    if (
+      !decoded ||
+      typeof decoded !== "object" ||
+      typeof decoded.offset !== "number" ||
+      typeof decoded.queryKey !== "string"
+    ) {
+      throw new Error("Invalid cursor payload");
+    }
+
+    return decoded;
   } catch {
-    throw new Error("InvalidCursor");
+    throw new HttpError(400, "InvalidCursor");
   }
+}
+
+function buildQueryKey(category?: string, name?: string): string {
+  return JSON.stringify({
+    category: category ?? null,
+    name: name ? normalizeForSearch(name) : null,
+  });
+}
+
+async function fetchAllDocuments(query: any): Promise<DocumentMetadata[]> {
+  const items: DocumentMetadata[] = [];
+  let lastKey: unknown = undefined;
+
+  do {
+    const page = lastKey ? await query.startAt(lastKey).exec() : await query.exec();
+    items.push(...page);
+    lastKey = page.lastKey;
+  } while (lastKey);
+
+  return items;
 }
 
 class DocumentDynamooseRepository implements DocumentMetadataRepository {
@@ -23,26 +56,30 @@ class DocumentDynamooseRepository implements DocumentMetadataRepository {
 
       entity: "DOCUMENT",
 
-      documentId: document.id,
+      id: document.id,
       name: document.name,
+      nameNormalized: normalizeForSearch(document.name),
       key: document.key,
       contentType: document.contentType,
       size: document.size,
       category: document.category,
       createdAt: document.createdAt,
+
+      GSI2PK: `ENTITY#DOCUMENT`,
+      GSI2SK: document.createdAt,
     });
   }
 
-  async findById(documentId: string): Promise<DocumentMetadata | null> {
+  async findById(id: string): Promise<DocumentMetadata | null> {
     const item = await AppTable.get({
-      PK: `DOCUMENT#${documentId}`,
-      SK: `METADATA#${documentId}`,
+      PK: `DOCUMENT#${id}`,
+      SK: `METADATA#${id}`,
     });
 
     if (!item) return null;
 
     return new DocumentMetadata(
-      item.documentId,
+      item.id,
       item.name,
       item.key,
       item.contentType,
@@ -58,7 +95,7 @@ class DocumentDynamooseRepository implements DocumentMetadataRepository {
     return result.map(
       (item) =>
         new DocumentMetadata(
-          item.documentId,
+          item.id,
           item.name,
           item.key,
           item.contentType,
@@ -73,44 +110,56 @@ class DocumentDynamooseRepository implements DocumentMetadataRepository {
     category?: string,
     limit?: number,
     cursor?: string,
+    name?: string,
   ): Promise<DocQueryResult> {
-    let scanner: any = AppTable.scan("entity").eq("DOCUMENT");
+    const queryKey = buildQueryKey(category, name);
+
+    let query: any = AppTable.query("GSI2PK").eq("ENTITY#DOCUMENT").using("GSI2");
 
     if (category) {
-      scanner = scanner.where("category").eq(category);
+      query = query.where("category").eq(category);
     }
 
-    if (cursor) {
-      scanner = scanner.startAt(decodeCursor(cursor));
+    if (name) {
+      query = query.where("nameNormalized").contains(normalizeForSearch(name));
     }
 
-    if (limit) {
-      scanner = scanner.limit(limit);
-    }
+    const allResults = await fetchAllDocuments(query);
 
-    const result = await scanner.exec();
+    const normalizedCursor = cursor ? decodeCursor(cursor) : null;
+    const offset = normalizedCursor && normalizedCursor.queryKey === queryKey
+      ? normalizedCursor.offset
+      : 0;
 
-    const documents = result.map((item: DocumentMetadata) => {
-      return new DocumentMetadata(
-        item.documentId,
-        item.name,
-        item.key,
-        item.contentType,
-        item.size,
-        item.category,
-        item.createdAt,
-      );
-    });
+    const filteredDocuments = allResults.map(
+      (item) =>
+        new DocumentMetadata(
+          item.id,
+          item.name,
+          item.key,
+          item.contentType,
+          item.size,
+          item.category,
+          item.createdAt,
+        ),
+    );
 
-    const nextCursor = result.lastKey ? encodeCursor(result.lastKey) : null;
+    const paginatedDocuments = limit
+      ? filteredDocuments.slice(offset, offset + limit)
+      : filteredDocuments.slice(offset);
 
-    return new DocQueryResult(documents, nextCursor);
+    const nextOffset = offset + paginatedDocuments.length;
+    const nextCursor = nextOffset < filteredDocuments.length
+      ? encodeCursor({ offset: nextOffset, queryKey })
+      : null;
+
+    return new DocQueryResult(paginatedDocuments, nextCursor);
   }
 
-  async delete(documentId: string): Promise<void> {
+  async delete(id: string): Promise<void> {
     await AppTable.delete({
-      PK: `DOCUMENT#${documentId}`,
-      SK: `METADATA#${documentId}`,
+      PK: `DOCUMENT#${id}`,
+      SK: `METADATA#${id}`,
     });
   }
 }

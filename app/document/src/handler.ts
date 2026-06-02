@@ -74,9 +74,9 @@ export async function deleteDocument(
     throw new HttpError(400, "DocumentIdNotProvided");
   }
 
-  const documentId = event.pathParameters.id;
+  const id = event.pathParameters.id;
 
-  await documentService.deleteDocument(documentId, getUserSub(event));
+  await documentService.deleteDocument(id, getUserSub(event));
 
   return {
     statusCode: 200,
@@ -103,6 +103,7 @@ export async function getDocuments(
     createdAt: document.createdAt,
   }));
 
+  console.log("ids dos documentos retornados:", responseData.map((doc) => doc.id));
   return {
     statusCode: 200,
     body: JSON.stringify({

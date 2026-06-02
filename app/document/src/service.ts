@@ -14,11 +14,11 @@ const GenerateUploadUrlSchema = z.object({
 });
 
 const GenerateViewUrlSchema = z.object({
-  documentId: z.string(),
+  id: z.string(),
 });
 
 const SaveMetadataSchema = z.object({
-  documentId: z.string(),
+  id: z.string(),
   name: z.string(),
   key: z.string(),
   contentType: z.string(),
@@ -28,6 +28,9 @@ const SaveMetadataSchema = z.object({
 
 const QuerySchema = z.object({
   category: z.string().optional(),
+  name: z.string().optional(),
+  q: z.string().optional(),
+  qType: z.enum(["name", "category"]).optional(),
   limit: z.coerce.number().int().positive().optional(),
   cursor: z.string().optional(),
 });
@@ -43,13 +46,13 @@ export class DocumentService {
     await verifyUserRole(userSub, [UserRole.ADMIN, UserRole.MASTER], this.userRepository);
 
     const validatedData = GenerateUploadUrlSchema.parse(data);
-    const documentId = randomUUID();
+    const id = randomUUID();
 
     const { uploadUrl, key } =
-      await this.documentRepository.generatePresignedUrl(documentId, validatedData.contentType);
+      await this.documentRepository.generatePresignedUrl(id, validatedData.contentType);
 
     return {
-      documentId,
+      id,
       uploadUrl,
       key
     };
@@ -60,7 +63,7 @@ export class DocumentService {
 
     const validatedData = SaveMetadataSchema.parse(data);
     const metadata = new DocumentMetadata(
-      validatedData.documentId,
+      validatedData.id,
       validatedData.name,
       validatedData.key,
       validatedData.contentType,
@@ -75,7 +78,7 @@ export class DocumentService {
 
   async generateViewUrl(data: z.infer<typeof GenerateViewUrlSchema>) {
     const validatedData = GenerateViewUrlSchema.parse(data);
-    const metadata = await this.documentMetadataRepository.findById(validatedData.documentId);
+    const metadata = await this.documentMetadataRepository.findById(validatedData.id);
 
     if (!metadata) {
       throw new HttpError(404, "DocumentNotFound");
@@ -84,24 +87,24 @@ export class DocumentService {
     const { viewUrl, key } = await this.documentRepository.generatePresignedReadUrl(metadata.key);
 
     return {
-      documentId: validatedData.documentId,
+      id: validatedData.id,
       viewUrl,
       key,
     };
   }
 
-  async deleteDocument(documentId: string, userSub: string) {
+  async deleteDocument(id: string, userSub: string) {
     await verifyUserRole(userSub, [UserRole.ADMIN, UserRole.MASTER], this.userRepository);
 
-    const metadata = await this.documentMetadataRepository.findById(documentId);
+    const metadata = await this.documentMetadataRepository.findById(id);
 
     if (!metadata) {
       throw new HttpError(404, "DocumentNotFound");
     }
    
-      await this.documentRepository.delete(documentId);
+      await this.documentRepository.delete(id);
 
-      await this.documentMetadataRepository.delete(documentId);
+      await this.documentMetadataRepository.delete(id);
 
     return { message: "Documento deletado com sucesso" };
   }
@@ -109,10 +112,19 @@ export class DocumentService {
   async getDocuments(query: z.infer<typeof QuerySchema>) {
     const validatedQuery = QuerySchema.parse(query);
 
+    let category = validatedQuery.category;
+    let name = validatedQuery.name;
+
+    if (validatedQuery.q && validatedQuery.qType) {
+      if (validatedQuery.qType === "name") name = validatedQuery.q;
+      if (validatedQuery.qType === "category") category = validatedQuery.q;
+    }
+
     const documents = await this.documentMetadataRepository.findWithFilters(
-      validatedQuery.category ?? undefined,
+      category ?? undefined,
       validatedQuery.limit ?? undefined,
-      validatedQuery.cursor ?? undefined
+      validatedQuery.cursor ?? undefined,
+      name ?? undefined,
     );
 
     return documents;
